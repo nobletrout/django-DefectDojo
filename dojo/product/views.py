@@ -27,8 +27,8 @@ from dojo.models import Product_Type, Note_Type, Finding, Product, Engagement, T
                         Test_Type, System_Settings, Languages, App_Analysis, Benchmark_Type, Benchmark_Product_Summary, Endpoint_Status, \
                         Endpoint, Engagement_Presets, DojoMeta, Notifications, BurpRawRequestResponse, Product_Member, \
                         Product_Group, Product_API_Scan_Configuration
-from dojo.utils import add_external_issue, add_error_message_to_response, add_field_errors_to_response, get_page_items, add_breadcrumb, \
-                       get_system_setting, Product_Tab, get_punchcard_data, queryset_check, is_title_in_breadcrumbs, get_enabled_notifications_list
+from dojo.utils import add_external_issue, add_error_message_to_response, add_field_errors_to_response, get_page_items, add_breadcrumb, async_delete, \
+                       get_system_setting, get_setting, Product_Tab, get_punchcard_data, queryset_check, is_title_in_breadcrumbs, get_enabled_notifications_list
 
 from dojo.notifications.helper import create_notification
 from django.db.models import Prefetch, F, OuterRef, Subquery
@@ -182,7 +182,7 @@ def view_product(request, pid):
 
     total = critical + high + medium + low + info
 
-    product_tab = Product_Tab(pid, title="Product", tab="overview")
+    product_tab = Product_Tab(prod, title="Product", tab="overview")
     return render(request, 'dojo/view_product_details.html', {
         'prod': prod,
         'product_tab': product_tab,
@@ -211,7 +211,7 @@ def view_product(request, pid):
 @user_is_authorized(Product, Permissions.Component_View, 'pid')
 def view_product_components(request, pid):
     prod = get_object_or_404(Product, id=pid)
-    product_tab = Product_Tab(pid, title="Product", tab="components")
+    product_tab = Product_Tab(prod, title="Product", tab="components")
     separator = ', '
 
     # Get components ordered by component_name and concat component versions to the same row
@@ -590,7 +590,7 @@ def view_product_metrics(request, pid):
             test_data[t.test_type.name] += t.verified_finding_count
         else:
             test_data[t.test_type.name] = t.verified_finding_count
-    product_tab = Product_Tab(pid, title="Product", tab="metrics")
+    product_tab = Product_Tab(prod, title="Product", tab="metrics")
 
     return render(request,
                   'dojo/product_metrics.html',
@@ -652,7 +652,7 @@ def view_engagements(request, pid):
 
     title = "All Engagements"
 
-    product_tab = Product_Tab(pid, title=title, tab="engagements")
+    product_tab = Product_Tab(prod, title=title, tab="engagements")
     return render(request,
                   'dojo/view_engagements.html',
                   {'prod': prod,
@@ -857,12 +857,12 @@ def edit_product(request, pid):
         if github_enabled and (github_inst is not None):
             if github_inst is not None:
                 gform = GITHUB_Product_Form(instance=github_inst)
+            else:
                 gform = GITHUB_Product_Form()
-            gform = GITHUB_Product_Form()
         else:
             gform = None
 
-    product_tab = Product_Tab(pid, title="Edit Product", tab="settings")
+    product_tab = Product_Tab(product, title="Edit Product", tab="settings")
     return render(request,
                   'dojo/edit_product.html',
                   {'form': form,
@@ -883,10 +883,16 @@ def delete_product(request, pid):
             form = DeleteProductForm(request.POST, instance=product)
             if form.is_valid():
                 product_type = product.prod_type
-                product.delete()
+                if get_setting("ASYNC_OBJECT_DELETE"):
+                    async_del = async_delete()
+                    async_del.delete(product)
+                    message = 'Product and relationships will be removed in the background.'
+                else:
+                    message = 'Product and relationships removed.'
+                    product.delete()
                 messages.add_message(request,
                                      messages.SUCCESS,
-                                     'Product and relationships removed.',
+                                     message,
                                      extra_tags='alert-success')
                 create_notification(event='other',
                                     title='Deletion of %s' % product.name,
@@ -904,11 +910,14 @@ def delete_product(request, pid):
 
     logger.debug('delete_product: GET')
 
-    collector = NestedObjects(using=DEFAULT_DB_ALIAS)
-    collector.collect([product])
-    rels = collector.nested()
+    rels = ['Previewing the relationships has been disabled.', '']
+    display_preview = get_setting('DELETE_PREVIEW')
+    if display_preview:
+        collector = NestedObjects(using=DEFAULT_DB_ALIAS)
+        collector.collect([product])
+        rels = collector.nested()
 
-    product_tab = Product_Tab(pid, title="Product", tab="settings")
+    product_tab = Product_Tab(product, title="Product", tab="settings")
 
     logger.debug('delete_product: GET RENDER')
 
@@ -1005,7 +1014,7 @@ def new_eng_for_app(request, pid, cicd=False):
     else:
         title = 'New Interactive Engagement'
 
-    product_tab = Product_Tab(pid, title=title, tab="engagements")
+    product_tab = Product_Tab(product, title=title, tab="engagements")
     return render(request, 'dojo/new_eng.html',
                   {'form': form,
                    'title': title,
@@ -1030,7 +1039,7 @@ def new_tech_for_prod(request, pid):
             return HttpResponseRedirect(reverse('view_product', args=(pid,)))
 
     form = AppAnalysisForm(initial={'user': request.user})
-    product_tab = Product_Tab(pid, title="Add Technology", tab="settings")
+    product_tab = Product_Tab(get_object_or_404(Product, id=pid), title="Add Technology", tab="settings")
     return render(request, 'dojo/new_tech.html',
                   {'form': form,
                    'product_tab': product_tab,
@@ -1056,8 +1065,7 @@ def edit_technology(request, tid):
             logger.debug('delete_product: POST INVALID FORM')
             logger.error(form.errors)
 
-    form = AppAnalysisForm(instance=technology)
-    product_tab = Product_Tab(technology.product.id, title="Edit Technology", tab="settings")
+    product_tab = Product_Tab(technology.product, title="Edit Technology", tab="settings")
     return render(request, 'dojo/edit_technology.html',
                   {'form': form,
                    'product_tab': product_tab,
@@ -1077,8 +1085,12 @@ def delete_technology(request, tid):
                             extra_tags='alert-success')
         return HttpResponseRedirect(reverse('view_product', args=(technology.product.id,)))
 
+<<<<<<< HEAD
     form = DeleteAppAnalysisForm(instance=technology)
     product_tab = Product_Tab(technology.product.id, title="Delete Technology", tab="settings")
+=======
+    product_tab = Product_Tab(technology.product, title="Delete Technology", tab="settings")
+>>>>>>> master
     return render(request, 'dojo/delete_technology.html', {
         'technology': technology,
         'form': form,
@@ -1110,7 +1122,7 @@ def add_meta_data(request, pid):
     else:
         form = DojoMetaDataForm()
 
-    product_tab = Product_Tab(pid, title="Add Metadata", tab="settings")
+    product_tab = Product_Tab(prod, title="Add Metadata", tab="settings")
 
     return render(request,
                   'dojo/add_product_meta_data.html',
@@ -1143,7 +1155,7 @@ def edit_meta_data(request, pid):
                              extra_tags='alert-success')
         return HttpResponseRedirect(reverse('view_product', args=(pid,)))
 
-    product_tab = Product_Tab(pid, title="Edit Metadata", tab="settings")
+    product_tab = Product_Tab(prod, title="Edit Metadata", tab="settings")
     return render(request,
                   'dojo/edit_product_meta_data.html',
                   {'product': prod,
@@ -1254,6 +1266,8 @@ def ad_hoc_finding(request, pid):
                 if gform.is_valid():
                     add_external_issue(new_finding, 'github')
 
+            finding_helper.save_vulnerability_ids(new_finding, form.cleaned_data['vulnerability_ids'].split())
+
             new_finding.save(push_to_jira=push_to_jira)
 
             if 'request' in form.cleaned_data or 'response' in form.cleaned_data:
@@ -1291,7 +1305,7 @@ def ad_hoc_finding(request, pid):
         else:
             gform = None
 
-    product_tab = Product_Tab(pid, title="Add Finding", tab="engagements")
+    product_tab = Product_Tab(prod, title="Add Finding", tab="engagements")
     product_tab.setEngagement(eng)
     return render(request, 'dojo/ad_hoc_findings.html',
                   {'form': form,
@@ -1310,7 +1324,7 @@ def engagement_presets(request, pid):
     prod = get_object_or_404(Product, id=pid)
     presets = Engagement_Presets.objects.filter(product=prod).all()
 
-    product_tab = Product_Tab(prod.id, title="Engagement Presets", tab="settings")
+    product_tab = Product_Tab(prod, title="Engagement Presets", tab="settings")
 
     return render(request, 'dojo/view_presets.html',
                   {'product_tab': product_tab,
@@ -1323,7 +1337,7 @@ def edit_engagement_presets(request, pid, eid):
     prod = get_object_or_404(Product, id=pid)
     preset = get_object_or_404(Engagement_Presets, id=eid)
 
-    product_tab = Product_Tab(prod.id, title="Edit Engagement Preset", tab="settings")
+    product_tab = Product_Tab(prod, title="Edit Engagement Preset", tab="settings")
 
     if request.method == 'POST':
         tform = EngagementPresetsForm(request.POST, instance=preset)
@@ -1363,7 +1377,7 @@ def add_engagement_presets(request, pid):
     else:
         tform = EngagementPresetsForm()
 
-    product_tab = Product_Tab(pid, title="New Engagement Preset", tab="settings")
+    product_tab = Product_Tab(prod, title="New Engagement Preset", tab="settings")
     return render(request, 'dojo/new_params.html', {'tform': tform, 'pid': pid, 'product_tab': product_tab})
 
 
@@ -1392,7 +1406,7 @@ def delete_engagement_presets(request, pid, eid):
     collector.collect([preset])
     rels = collector.nested()
 
-    product_tab = Product_Tab(pid, title="Delete Engagement Preset", tab="settings")
+    product_tab = Product_Tab(prod, title="Delete Engagement Preset", tab="settings")
     return render(request, 'dojo/delete_presets.html',
                   {'product': product,
                    'form': form,
@@ -1452,7 +1466,7 @@ def add_product_member(request, pid):
                                     'Product members added successfully.',
                                     extra_tags='alert-success')
                 return HttpResponseRedirect(reverse('view_product', args=(pid, )))
-    product_tab = Product_Tab(pid, title="Add Product Member", tab="settings")
+    product_tab = Product_Tab(product, title="Add Product Member", tab="settings")
     return render(request, 'dojo/new_product_member.html', {
         'product': product,
         'form': memberform,
@@ -1482,7 +1496,7 @@ def edit_product_member(request, memberid):
                     return HttpResponseRedirect(reverse('view_user', args=(member.user.id, )))
                 else:
                     return HttpResponseRedirect(reverse('view_product', args=(member.product.id, )))
-    product_tab = Product_Tab(member.product.id, title="Edit Product Member", tab="settings")
+    product_tab = Product_Tab(member.product, title="Edit Product Member", tab="settings")
     return render(request, 'dojo/edit_product_member.html', {
         'memberid': memberid,
         'form': memberform,
@@ -1509,8 +1523,12 @@ def delete_product_member(request, memberid):
                 return HttpResponseRedirect(reverse('product'))
             else:
                 return HttpResponseRedirect(reverse('view_product', args=(member.product.id, )))
+<<<<<<< HEAD
     memberform = Delete_Product_MemberForm(instance=member)
     product_tab = Product_Tab(member.product.id, title="Delete Product Member", tab="settings")
+=======
+    product_tab = Product_Tab(member.product, title="Delete Product Member", tab="settings")
+>>>>>>> master
     return render(request, 'dojo/delete_product_member.html', {
         'memberid': memberid,
         'form': memberform,
@@ -1553,7 +1571,7 @@ def add_api_scan_configuration(request, pid):
     else:
         form = Product_API_Scan_ConfigurationForm()
 
-    product_tab = Product_Tab(pid, title="Add API Scan Configuration", tab="settings")
+    product_tab = Product_Tab(product, title="Add API Scan Configuration", tab="settings")
 
     return render(request,
                   'dojo/add_product_api_scan_configuration.html',
@@ -1568,7 +1586,7 @@ def view_api_scan_configurations(request, pid):
 
     product_api_scan_configurations = Product_API_Scan_Configuration.objects.filter(product=pid)
 
-    product_tab = Product_Tab(pid, title="API Scan Configurations", tab="settings")
+    product_tab = Product_Tab(get_object_or_404(Product, id=pid), title="API Scan Configurations", tab="settings")
     return render(request,
                   'dojo/view_product_api_scan_configurations.html',
                   {
@@ -1614,7 +1632,7 @@ def edit_api_scan_configuration(request, pid, pascid):
     else:
         form = Product_API_Scan_ConfigurationForm(instance=product_api_scan_configuration)
 
-    product_tab = Product_Tab(pid, title="Edit API Scan Configuration", tab="settings")
+    product_tab = Product_Tab(get_object_or_404(Product, id=pid), title="Edit API Scan Configuration", tab="settings")
     return render(request,
                   'dojo/edit_product_api_scan_configuration.html',
                   {
@@ -1642,7 +1660,7 @@ def delete_api_scan_configuration(request, pid, pascid):
     else:
         form = DeleteProduct_API_Scan_ConfigurationForm(instance=product_api_scan_configuration)
 
-    product_tab = Product_Tab(pid, title="Delete Tool Configuration", tab="settings")
+    product_tab = Product_Tab(get_object_or_404(Product, id=pid), title="Delete Tool Configuration", tab="settings")
     return render(request,
                   'dojo/delete_product_api_scan_configuration.html',
                   {
@@ -1678,8 +1696,12 @@ def edit_product_group(request, groupid):
             logger.debug('delete_product: POST INVALID FORM')
             logger.error(form.errors)
 
+<<<<<<< HEAD
     groupform = Edit_Product_Group_Form(instance=group)
     product_tab = Product_Tab(group.product.id, title="Edit Product Group", tab="settings")
+=======
+    product_tab = Product_Tab(group.product, title="Edit Product Group", tab="settings")
+>>>>>>> master
     return render(request, 'dojo/edit_product_group.html', {
         'groupid': groupid,
         'form': groupform,
@@ -1706,9 +1728,13 @@ def delete_product_group(request, groupid):
             #  page
             return HttpResponseRedirect(reverse('view_product', args=(group.product.id, )))
 
+<<<<<<< HEAD
     groupform = Delete_Product_GroupForm(instance=group)
 
     product_tab = Product_Tab(group.product.id, title="Delete Product Group", tab="settings")
+=======
+    product_tab = Product_Tab(group.product, title="Delete Product Group", tab="settings")
+>>>>>>> master
     return render(request, 'dojo/delete_product_group.html', {
         'groupid': groupid,
         'form': groupform,
@@ -1743,9 +1769,13 @@ def add_product_group(request, pid):
                                          'Product groups added successfully.',
                                          extra_tags='alert-success')
                 return HttpResponseRedirect(reverse('view_product', args=(pid, )))
+<<<<<<< HEAD
 
     group_form = Add_Product_GroupForm(initial={'product': product.id})
     product_tab = Product_Tab(pid, title="Edit Product Group", tab="settings")
+=======
+    product_tab = Product_Tab(product, title="Edit Product Group", tab="settings")
+>>>>>>> master
     return render(request, 'dojo/new_product_group.html', {
         'product': product,
         'form': group_form,

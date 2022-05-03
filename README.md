@@ -26,9 +26,9 @@ Log in with `admin / 1Defectdojo@demo#appsec`. Please note that the demo is publ
 git clone https://github.com/DefectDojo/django-DefectDojo
 cd django-DefectDojo
 # building
-docker-compose build
-# running
-docker-compose up
+./dc-build.sh
+# running (for other profiles besides mysql-rabbitmq look at https://github.com/DefectDojo/django-DefectDojo/blob/dev/readme-docs/DOCKER.md)
+./dc-up.sh mysql-rabbitmq
 # obtain admin credentials. the initializer can take up to 3 minutes to run
 # use docker-compose logs -f initializer to track progress
 docker-compose logs initializer | grep "Admin password:"
@@ -47,6 +47,7 @@ Navigate to <http://localhost:8080>.
 ## Supported Installation Options
 
 * [Docker / Docker Compose](readme-docs/DOCKER.md)
+* [AWS AMI ](https://aws.amazon.com/marketplace/pp/prodview-m2a25gr67xbzk) - Supports the Project
 * [godojo](https://github.com/DefectDojo/godojo)
 
 
@@ -93,15 +94,6 @@ Moderators can help you with pull requests or feedback on dev ideas:
 * Jay Paz ([@jjpaz](https://twitter.com/jjpaz)) – Jay was a DefectDojo
   maintainer for years. He performed Dojo's first UI overhaul, optimized code structure/features, and added numerous enhancements.
 
-
-## Sponsors
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/10Security-logo.png" github-user="devgrega" alt="10Security" height="65"/>](https://10security.com)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/isaac.png" github-user="valentijnscholten" alt="ISAAC" height="80"/>](https://isaac.nl)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/timo-pagel-logo.png" github-user="wurstbot" alt="Tim Pagel" height="65" />](https://pagel.pro/)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/cloudbees-logo.png" github-user="madchap" alt="Cloudbees" height="65" />](https://cloudbees.com/)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/arrival.png" github-user="ansidorov" alt="ARRIVAL" height="65" />](https://arrival.com)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/WHP.png" github-user="mtesauro" alt="WeHackPurle" height="120" />](https://wehackpurple.com/)
-[<img src="https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/dev/docs/static/images/maibornwolff-logo.png" github-user="StefanFl" alt="MiabornWolff" height="120" />]((https://www.maibornwolff.de/en))
 
 ## Security
 
