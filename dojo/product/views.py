@@ -1085,12 +1085,7 @@ def delete_technology(request, tid):
                             extra_tags='alert-success')
         return HttpResponseRedirect(reverse('view_product', args=(technology.product.id,)))
 
-<<<<<<< HEAD
-    form = DeleteAppAnalysisForm(instance=technology)
-    product_tab = Product_Tab(technology.product.id, title="Delete Technology", tab="settings")
-=======
     product_tab = Product_Tab(technology.product, title="Delete Technology", tab="settings")
->>>>>>> master
     return render(request, 'dojo/delete_technology.html', {
         'technology': technology,
         'form': form,
@@ -1523,12 +1518,7 @@ def delete_product_member(request, memberid):
                 return HttpResponseRedirect(reverse('product'))
             else:
                 return HttpResponseRedirect(reverse('view_product', args=(member.product.id, )))
-<<<<<<< HEAD
-    memberform = Delete_Product_MemberForm(instance=member)
-    product_tab = Product_Tab(member.product.id, title="Delete Product Member", tab="settings")
-=======
     product_tab = Product_Tab(member.product, title="Delete Product Member", tab="settings")
->>>>>>> master
     return render(request, 'dojo/delete_product_member.html', {
         'memberid': memberid,
         'form': memberform,
@@ -1696,12 +1686,7 @@ def edit_product_group(request, groupid):
             logger.debug('delete_product: POST INVALID FORM')
             logger.error(form.errors)
 
-<<<<<<< HEAD
-    groupform = Edit_Product_Group_Form(instance=group)
-    product_tab = Product_Tab(group.product.id, title="Edit Product Group", tab="settings")
-=======
     product_tab = Product_Tab(group.product, title="Edit Product Group", tab="settings")
->>>>>>> master
     return render(request, 'dojo/edit_product_group.html', {
         'groupid': groupid,
         'form': groupform,
@@ -1728,13 +1713,7 @@ def delete_product_group(request, groupid):
             #  page
             return HttpResponseRedirect(reverse('view_product', args=(group.product.id, )))
 
-<<<<<<< HEAD
-    groupform = Delete_Product_GroupForm(instance=group)
-
-    product_tab = Product_Tab(group.product.id, title="Delete Product Group", tab="settings")
-=======
     product_tab = Product_Tab(group.product, title="Delete Product Group", tab="settings")
->>>>>>> master
     return render(request, 'dojo/delete_product_group.html', {
         'groupid': groupid,
         'form': groupform,
@@ -1769,13 +1748,7 @@ def add_product_group(request, pid):
                                          'Product groups added successfully.',
                                          extra_tags='alert-success')
                 return HttpResponseRedirect(reverse('view_product', args=(pid, )))
-<<<<<<< HEAD
-
-    group_form = Add_Product_GroupForm(initial={'product': product.id})
-    product_tab = Product_Tab(pid, title="Edit Product Group", tab="settings")
-=======
     product_tab = Product_Tab(product, title="Edit Product Group", tab="settings")
->>>>>>> master
     return render(request, 'dojo/new_product_group.html', {
         'product': product,
         'form': group_form,
